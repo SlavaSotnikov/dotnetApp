@@ -59,12 +59,11 @@ pipeline {
                 sh """
                     echo '⏳ waiting SQL Server…'
                     for i in {1..40}; do
-                        docker exec ${DB_CONT} /opt/mssql-tools/bin/sqlcmd \\
-                            -S localhost -U sa -P ${DB_PASS} -Q "SELECT 1" && {
+                        bash -c 'echo > /dev/tcp/127.0.0.1/1433' 2>/dev/null && {
                             echo '✅ SQL ready'; exit 0; }
                         sleep 2
                     done
-                    echo '⛔ SQL Server did not start in time'; exit 1
+                    echo '⛔ SQL did not open port 1433 in 80 s'; exit 1
                 """
             }
         }
