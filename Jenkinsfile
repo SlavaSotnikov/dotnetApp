@@ -34,15 +34,7 @@ pipeline {
 
         stage('Ensure database container') {
             steps {
-                script {
-                    sh '''
-              echo "⏳  Waiting for MSSQL port 1433…"
-              for i in {1..30}; do
-              # … docker run mssql …
-                  docker exec mssql /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P ${DB_PASS} -Q "SELECT 1" && break
-                  sleep 2
-              done
-            '''
+
                     sh '''
               # якщо mssql вже є — видаляємо, щоб гарантовано під'єднати до потрібної мережі
               docker rm -f mssql || true
@@ -79,6 +71,22 @@ pipeline {
                 """
             }
         }
+
+        stage('Wait MSSQL port') {
+            steps {
+                script {
+                    sh '''
+                    echo "⏳ Waiting 1433…"
+                    for i in {1..40}; do
+                   nc -z mssql 1433 && exit 0
+                   sleep 2
+                    done
+                    echo "⛔️ SQL Server not up" ; exit 1
+            '''
+        }
+    }
+}
+
 
         stage('Health check') {
             steps {
