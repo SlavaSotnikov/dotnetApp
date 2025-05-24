@@ -13,96 +13,94 @@ pipeline {
 
     stages {
 
+        /* ---------- 1. Код ---------- */
         stage('Checkout') {
             steps { checkout scm }
         }
 
+        /* ---------- 2. Мережа ---------- */
         stage('Ensure Docker network') {
             steps {
                 sh "docker network inspect ${NETWORK} >/dev/null 2>&1 || docker network create ${NETWORK}"
-    }
-}
+            }
+        }
 
-
+        /* ---------- 3. Збірка образу бекенду ---------- */
         stage('Build backend image') {
             steps {
                 sh """
-                  docker build -t ${API_IMAGE}:${API_TAG} -t ${API_IMAGE}:latest .
+                    docker build -t ${API_IMAGE}:${API_TAG} -t ${API_IMAGE}:latest .
                 """
             }
         }
 
+        /* ---------- 4. Запуск / оновлення MSSQL ---------- */
         stage('Ensure database container') {
             steps {
+                sh """
+                    docker rm -f ${DB_CONT} || true
+                    docker volume create ${DB_VOL} || true
 
-                    sh '''
-              # якщо mssql вже є — видаляємо, щоб гарантовано під'єднати до потрібної мережі
-              docker rm -f mssql || true
-
-              docker volume create mssql-data || true
-
-              docker run -d --name mssql \
-                --network ${NETWORK} \
-                -e ACCEPT_EULA=Y \
-                -e SA_PASSWORD=${DB_PASS} \
-                -p 1433:1433 \
-                -v mssql-data:/var/opt/mssql \
-                --restart unless-stopped \
-                mcr.microsoft.com/mssql/server:2022-latest
-            '''
+                    docker run -d --name ${DB_CONT} \\
+                      --network ${NETWORK} \\
+                      -e ACCEPT_EULA=Y \\
+                      -e SA_PASSWORD=${DB_PASS} \\
+                      -p 1433:1433 \\
+                      -v ${DB_VOL}:/var/opt/mssql \\
+                      --restart unless-stopped \\
+                      mcr.microsoft.com/mssql/server:2022-latest
+                """
+            }
         }
-    }
-}
 
+        /* ---------- 5. Чекаємо, поки MSSQL відкриє порт ---------- */
+        stage('Wait MSSQL port') {
+            steps {
+                sh """
+                    echo '⏳ Waiting for port 1433...'
+                    for i in {1..40}; do
+                        nc -z ${DB_CONT} 1433 && { echo '✅ SQL ready'; exit 0; }
+                        sleep 2
+                    done
+                    echo '⛔ SQL Server still down after 80s'; exit 1
+                """
+            }
+        }
 
+        /* ---------- 6. Деплой бекенду ---------- */
         stage('Deploy backend container') {
             steps {
                 sh """
+                    docker rm -f ${API_IMAGE} || true
 
-                  docker rm -f ${API_IMAGE} || true
-
-                  docker run -d --name ${API_IMAGE} \
-                    --network ${NETWORK} \
-                    --restart unless-stopped \
-                    -p ${PORT}:80 \
-                    -e ASPNETCORE_ENVIRONMENT=Development \\
-                    -e ConnectionStrings__Default='Server=mssql;Database=Products;User=sa;Password=${DB_PASS};Encrypt=False;' \\
-                    ${API_IMAGE}:latest
+                    docker run -d --name ${API_IMAGE} \\
+                      --network ${NETWORK} \\
+                      --restart unless-stopped \\
+                      -p ${PORT}:80 \\
+                      -e ASPNETCORE_ENVIRONMENT=Development \\
+                      -e ConnectionStrings__Default="Server=${DB_CONT};Database=Products;User=sa;Password=${DB_PASS};Encrypt=False;" \\
+                      ${API_IMAGE}:latest
                 """
             }
         }
 
-        stage('Wait MSSQL port') {
-            steps {
-                script {
-                    sh '''
-                    echo "⏳ Waiting 1433…"
-                    for i in {1..40}; do
-                   nc -z mssql 1433 && exit 0
-                   sleep 2
-                    done
-                    echo "⛔️ SQL Server not up" ; exit 1
-            '''
-        }
-    }
-}
-
-
+        /* ---------- 7. Health-check ---------- */
         stage('Health check') {
             steps {
-                script {
-                    retry(10) {
-                        sleep 3
-                        sh "curl -sf http://localhost:${PORT}/swagger/index.html > /dev/null"
-                    }
+                retry(10) {
+                    sleep 3
+                    sh "curl -sf http://localhost:${PORT}/swagger/index.html > /dev/null"
                 }
             }
         }
     }
 
     post {
-        success { echo "✅ Backend #${BUILD_NUMBER} запущено на :${PORT}" }
-        failure { echo "❌ Deploy/health-check не пройшов" }
+        success {
+            echo "✅ Backend #${BUILD_NUMBER} запущено на порті :${PORT}"
+        }
+        failure {
+            echo "❌ Deploy або health-check не пройшов"
+        }
     }
 }
-
