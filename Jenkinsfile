@@ -36,6 +36,14 @@ pipeline {
             steps {
                 script {
                     sh '''
+              echo "⏳  Waiting for MSSQL port 1433…"
+              for i in {1..30}; do
+              # … docker run mssql …
+                  docker exec mssql /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P ${DB_PASS} -Q "SELECT 1" && break
+                  sleep 2
+              done
+            '''
+                    sh '''
               # якщо mssql вже є — видаляємо, щоб гарантовано під'єднати до потрібної мережі
               docker rm -f mssql || true
 
@@ -65,7 +73,6 @@ pipeline {
                     --network ${NETWORK} \
                     --restart unless-stopped \
                     -p ${PORT}:80 \
-                    --link ${DB_CONT}:mssql \\
                     -e ASPNETCORE_ENVIRONMENT=Development \\
                     -e ConnectionStrings__Default='Server=mssql;Database=Products;User=sa;Password=${DB_PASS};Encrypt=False;' \\
                     ${API_IMAGE}:latest
