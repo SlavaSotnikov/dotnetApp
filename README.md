@@ -14,3 +14,4 @@ The content can be created by script
 ```
 it ensures that five products are inserted with the original prices.
 Connection string to DB should be provided in appsettings.json in ConnectionStrings section, under Default name.
+# trigger
