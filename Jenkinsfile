@@ -40,6 +40,7 @@ pipeline {
                 sh """
                     docker rm -f ${DB_CONT} || true
                     docker volume create ${DB_VOL} || true
+
                     docker run -d --name ${DB_CONT} \\
                       --network ${NETWORK} \\
                       -e ACCEPT_EULA=Y \\
@@ -52,23 +53,21 @@ pipeline {
             }
         }
 
-        /* ---------- 5. Чекаємо, поки MSSQL відкриє порт ---------- */
-        stage('Wait MSSQL healthy') {
-    steps {
-        script {
-            timeout(time: 2, unit: 'MINUTES') {
-                waitUntil {
-                    def status = sh(
-                        script: "docker inspect -f '{{ .State.Health.Status }}' ${DB_CONT}",
-                        returnStdout: true
-                    ).trim()
-                    echo "MSSQL health = ${status}"
-                    return (status == 'healthy')
-                }
+        /* ---------- 5. Чекаємо готовності MSSQL ---------- */
+        stage('Wait MSSQL ready') {
+            steps {
+                sh """
+                    echo '⏳ waiting SQL Server…'
+                    for i in {1..40}; do
+                        docker exec ${DB_CONT} /opt/mssql-tools/bin/sqlcmd \\
+                            -S localhost -U sa -P ${DB_PASS} -Q "SELECT 1" && {
+                            echo '✅ SQL ready'; exit 0; }
+                        sleep 2
+                    done
+                    echo '⛔ SQL Server did not start in time'; exit 1
+                """
             }
         }
-    }
-}
 
         /* ---------- 6. Деплой бекенду ---------- */
         stage('Deploy backend container') {
