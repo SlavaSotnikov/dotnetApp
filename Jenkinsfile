@@ -59,9 +59,12 @@ pipeline {
                 sh """
                     echo '⏳ Waiting for port 1433...'
                     for i in {1..40}; do
-                        nc -z ${DB_CONT} 1433 && { echo '✅ SQL ready'; exit 0; }
-                        sleep 2
-                    done
+                        bash -c "</dev/tcp/mssql/1433" &>/dev/null && {
+                    echo "✅ SQL ready";
+                    exit 0;
+                }
+                sleep 2
+            done
                     echo '⛔ SQL Server still down after 80s'; exit 1
                 """
             }
