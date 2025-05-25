@@ -57,10 +57,9 @@ pipeline {
         stage('Wait MSSQL ready') {
             steps {
                 sh """
-                    echo '⏳ waiting SQL Server…'
+                    echo "⏳ Waiting for MSSQL (1433)…"
                     for i in {1..40}; do
-                docker exec ${DB_CONT} /opt/mssql-tools/bin/sqlcmd \\
-                   -S localhost -U sa -P ${DB_PASS} -Q "SELECT 1" && {
+                bash -c "</dev/tcp/mssql/1433" &>/dev/null && {
                    echo '✅ SQL ready'; exit 0; }
                 sleep 2
             done
@@ -91,7 +90,7 @@ pipeline {
             steps {
                 retry(10) {
                     sleep 3
-                    sh "curl -sf http://localhost:${PORT}/swagger/index.html > /dev/null"
+                    sh "curl -sf http://192.168.1.24:${PORT}/swagger/index.html > /dev/null"
                 }
             }
         }
