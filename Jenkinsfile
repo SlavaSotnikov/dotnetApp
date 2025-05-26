@@ -3,11 +3,12 @@ pipeline {
 
     environment {
         API_IMAGE = 'products-backend'
+        API_HOST  = credentials('api-host')        
         API_TAG   = "${env.BUILD_NUMBER}"
         DB_CONT   = 'mssql'
         DB_PASS   = 'Your_password123'
         DB_VOL    = 'mssql-data'
-        PORT      = '8080'
+        PORT      = credentials('port')
         NETWORK   = 'products-net'
     }
 
@@ -90,7 +91,7 @@ pipeline {
             steps {
                 retry(10) {
                     sleep 3
-                    sh "curl -sf http://192.168.1.24:${PORT}/swagger/index.html > /dev/null"
+                    sh "curl -sf http://${API_HOST}:${PORT}/swagger/index.html > /dev/null"
                 }
             }
         }
