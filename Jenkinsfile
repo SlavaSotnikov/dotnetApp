@@ -14,7 +14,6 @@ pipeline {
 
     stages {
 
-        /* ---------- 1. Код ---------- */
         stage('Checkout') {
             steps { checkout scm }
         }
