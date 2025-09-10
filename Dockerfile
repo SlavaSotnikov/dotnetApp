@@ -1,5 +1,5 @@
 # build stage
-FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /app
 
 COPY *.sln .
@@ -11,7 +11,7 @@ WORKDIR /app/Products
 RUN dotnet publish -c Release -o out
 
 # runtime stage
-FROM mcr.microsoft.com/dotnet/aspnet:6.0
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
 COPY --from=build /app/Products/out ./
 ENTRYPOINT ["dotnet", "Products.dll"]
