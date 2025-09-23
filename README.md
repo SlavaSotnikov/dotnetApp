@@ -1,7 +1,7 @@
 # Description
 This project is the .Net backend part of an educational  project. It provides connection to DB, implements CRUD operations and sends responses to requests. 
 
-## The DataBase structure
+## The DataBase structuren new
 The database is managed by MS SQL Server.
 The content can be created by script
 ```
